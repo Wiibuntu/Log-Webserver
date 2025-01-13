@@ -24,13 +24,19 @@ std::string get_system_temps() {
     std::array<char, 128> buffer;
     FILE *pipe = popen("sensors", "r");
     if (!pipe) {
-        return "Error: Unable to fetch temperatures";
+        return "Error: Unable to fetch temperatures.";
     }
 
     while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         temps += buffer.data();
     }
     pclose(pipe);
+
+    // If the output is empty, return an error message
+    if (temps.empty()) {
+        return "No temperature data available.";
+    }
+
     return temps;
 }
 
@@ -41,10 +47,14 @@ void serve_client(int client_socket) {
     // Read the log file into a vector for reversing
     std::vector<std::string> log_lines;
     std::string line;
-    while (std::getline(log_file, line)) {
-        log_lines.push_back(line);
+    if (log_file) {
+        while (std::getline(log_file, line)) {
+            log_lines.push_back(line);
+        }
+        log_file.close();
+    } else {
+        log_lines.push_back("Error: Unable to read log file.");
     }
-    log_file.close();
 
     // Reverse the log entries to show the newest first
     std::reverse(log_lines.begin(), log_lines.end());
@@ -58,7 +68,7 @@ void serve_client(int client_socket) {
     response << "<!DOCTYPE html><html><head><style>";
     response << "body { background-color: black; color: white; font-family: monospace; font-size: 18px; margin: 0; padding: 0; }";
     response << "#log { padding: 20px; }";
-    response << "#temps { position: fixed; top: 10px; right: 10px; background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 8px; }";
+    response << "#temps { position: fixed; top: 10px; right: 10px; background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 8px; width: 300px; }";
     response << "</style>";
     response << "<meta http-equiv=\"refresh\" content=\"2\">";  // Auto-refresh every 2 seconds
     response << "</head><body>";
@@ -179,4 +189,3 @@ int main() {
     start_server();
     return 0;
 }
-
