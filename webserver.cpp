@@ -32,7 +32,6 @@ std::string get_system_temps() {
     }
     pclose(pipe);
 
-    // If the output is empty, return an error message
     if (temps.empty()) {
         return "No temperature data available.";
     }
@@ -40,29 +39,43 @@ std::string get_system_temps() {
     return temps;
 }
 
-void serve_client(int client_socket) {
-    std::ifstream log_file(LOG_FILE);
-    std::ostringstream response;
-
-    // Read the log file into a vector for reversing
-    std::vector<std::string> log_lines;
-    std::string line;
-    if (log_file) {
-        while (std::getline(log_file, line)) {
-            log_lines.push_back(line);
-        }
-        log_file.close();
-    } else {
-        log_lines.push_back("Error: Unable to read log file.");
+// Function to read log file content
+std::string read_log_file() {
+    std::ifstream log_file(LOG_FILE, std::ios::in); // Open file in read-only mode
+    if (!log_file) {
+        return "Error: Unable to read log file."; // Graceful fallback
     }
 
-    // Reverse the log entries to show the newest first
+    std::vector<std::string> log_lines;
+    std::string line;
+
+    // Read lines from log file
+    while (std::getline(log_file, line)) {
+        log_lines.push_back(line);
+    }
+    log_file.close();
+
+    // Reverse log lines for newest-first display
     std::reverse(log_lines.begin(), log_lines.end());
 
-    // Fetch the system temperatures
+    // Combine lines into a single HTML-safe string
+    std::ostringstream log_content;
+    for (const auto &log_line : log_lines) {
+        log_content << log_line << "<br>";
+    }
+
+    return log_content.str();
+}
+
+void serve_client(int client_socket) {
+    // Fetch system temperatures
     std::string system_temps = get_system_temps();
 
+    // Read log file content
+    std::string log_content = read_log_file();
+
     // Build HTML response
+    std::ostringstream response;
     response << "HTTP/1.1 200 OK\r\n";
     response << "Content-Type: text/html\r\n\r\n";
     response << "<!DOCTYPE html><html><head><style>";
@@ -73,20 +86,19 @@ void serve_client(int client_socket) {
     response << "<meta http-equiv=\"refresh\" content=\"2\">";  // Auto-refresh every 2 seconds
     response << "</head><body>";
 
-    // Display the system temperatures in a box
+    // Add temperature box
     response << "<div id=\"temps\">";
     response << "<strong>System Temperatures:</strong><br>";
     std::istringstream temps_stream(system_temps);
-    while (std::getline(temps_stream, line)) {
-        response << line << "<br>";
+    std::string temp_line;
+    while (std::getline(temps_stream, temp_line)) {
+        response << temp_line << "<br>";
     }
     response << "</div>";
 
-    // Add the log lines to the HTML
+    // Add log file content
     response << "<div id=\"log\">";
-    for (const auto &log_line : log_lines) {
-        response << log_line << "<br>";
-    }
+    response << log_content;
     response << "</div>";
 
     response << "</body></html>";
