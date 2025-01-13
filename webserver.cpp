@@ -40,66 +40,34 @@ std::string get_system_temps() {
 }
 
 // Function to read log file content
-std::string read_log_file() {
-    std::ifstream log_file(LOG_FILE, std::ios::in); // Open file in read-only mode
-    if (!log_file) {
-        return "Error: Unable to read log file."; // Graceful fallback
-    }
+void serve_client(int client_socket) {
+    std::ifstream log_file(LOG_FILE);
+    std::ostringstream response;
 
+    // Read the log file into a vector for reversing
     std::vector<std::string> log_lines;
     std::string line;
-
-    // Read lines from log file
     while (std::getline(log_file, line)) {
         log_lines.push_back(line);
     }
     log_file.close();
 
-    // Reverse log lines for newest-first display
+    // Reverse the log entries to show the newest first
     std::reverse(log_lines.begin(), log_lines.end());
 
-    // Combine lines into a single HTML-safe string
-    std::ostringstream log_content;
-    for (const auto &log_line : log_lines) {
-        log_content << log_line << "<br>";
-    }
-
-    return log_content.str();
-}
-
-void serve_client(int client_socket) {
-    // Fetch system temperatures
-    std::string system_temps = get_system_temps();
-
-    // Read log file content
-    std::string log_content = read_log_file();
-
     // Build HTML response
-    std::ostringstream response;
     response << "HTTP/1.1 200 OK\r\n";
     response << "Content-Type: text/html\r\n\r\n";
     response << "<!DOCTYPE html><html><head><style>";
-    response << "body { background-color: black; color: white; font-family: monospace; font-size: 18px; margin: 0; padding: 0; }";
-    response << "#log { padding: 20px; }";
-    response << "#temps { position: fixed; top: 10px; right: 10px; background: rgba(255, 255, 255, 0.1); padding: 10px; border-radius: 8px; width: 300px; }";
+    response << "body { background-color: black; color: white; font-family: monospace; font-size: 18px; }"; // Increased font size
     response << "</style>";
-    response << "<meta http-equiv=\"refresh\" content=\"2\">";  // Auto-refresh every 2 seconds
+    response << "<meta http-equiv=\"refresh\" content=\"2\">"; // Auto-refresh every 2 seconds
     response << "</head><body>";
 
-    // Add temperature box
-    response << "<div id=\"temps\">";
-    response << "<strong>System Temperatures:</strong><br>";
-    std::istringstream temps_stream(system_temps);
-    std::string temp_line;
-    while (std::getline(temps_stream, temp_line)) {
-        response << temp_line << "<br>";
+    // Add the log lines to the HTML
+    for (const auto &log_line : log_lines) {
+        response << log_line << "<br>";
     }
-    response << "</div>";
-
-    // Add log file content
-    response << "<div id=\"log\">";
-    response << log_content;
-    response << "</div>";
 
     response << "</body></html>";
 
