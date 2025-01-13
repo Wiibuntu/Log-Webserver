@@ -16,7 +16,7 @@
 #include <fcntl.h>
 
 #define PORT 28885
-#define LOG_FILE "/home/debian/Webserver/log.txt" // Update this with the absolute path to your log file
+#define LOG_FILE "/path/to/log.txt" // Use an absolute path for the log file
 
 // Function to fetch system temperatures using lm-sensors
 std::string get_system_temps() {
@@ -46,7 +46,10 @@ void serve_client(int client_socket) {
 
     if (!log_file) {
         response << "HTTP/1.1 500 Internal Server Error\r\n";
-        response << "Content-Type: text/html\r\n\r\n";
+        response << "Content-Type: text/html\r\n";
+        response << "Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n";
+        response << "Pragma: no-cache\r\n";
+        response << "Expires: -1\r\n\r\n";
         response << "<!DOCTYPE html><html><head><style>";
         response << "body { background-color: black; color: white; font-family: monospace; font-size: 18px; }";
         response << "</style></head><body>";
@@ -68,9 +71,12 @@ void serve_client(int client_socket) {
     // Reverse the log entries to show the newest first
     std::reverse(log_lines.begin(), log_lines.end());
 
-    // Build HTML response
+    // Build HTML response with caching disabled
     response << "HTTP/1.1 200 OK\r\n";
-    response << "Content-Type: text/html\r\n\r\n";
+    response << "Content-Type: text/html\r\n";
+    response << "Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n";
+    response << "Pragma: no-cache\r\n";
+    response << "Expires: -1\r\n\r\n";
     response << "<!DOCTYPE html><html><head><style>";
     response << "body { background-color: black; color: white; font-family: monospace; font-size: 18px; }";
     response << "</style>";
