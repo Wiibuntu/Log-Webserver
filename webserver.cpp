@@ -102,22 +102,26 @@ void start_server() {
     // Configure socket options
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
         perror("setsockopt failed");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
+    // Initialize address structure
     address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_addr.s_addr = INADDR_ANY; // Bind to all network interfaces
     address.sin_port = htons(PORT);
 
     // Bind socket
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
         perror("Bind failed");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
     // Listen for connections
-    if (listen(server_fd, 3) < 0) {
+    if (listen(server_fd, 10) < 0) { // Allow up to 10 pending connections
         perror("Listen failed");
+        close(server_fd);
         exit(EXIT_FAILURE);
     }
 
@@ -128,7 +132,7 @@ void start_server() {
         client_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen);
         if (client_socket < 0) {
             perror("Accept failed");
-            exit(EXIT_FAILURE);
+            continue; // Keep the server running even if accept fails
         }
         std::thread(serve_client, client_socket).detach();
     }
