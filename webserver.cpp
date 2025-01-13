@@ -16,7 +16,7 @@
 #include <fcntl.h>
 
 #define PORT 28885
-#define LOG_FILE "log.txt"
+#define LOG_FILE "/home/debian/Webserver/log.txt" // Update this with the absolute path to your log file
 
 // Function to fetch system temperatures using lm-sensors
 std::string get_system_temps() {
@@ -39,10 +39,23 @@ std::string get_system_temps() {
     return temps;
 }
 
-// Function to read log file content
+// Function to serve client requests
 void serve_client(int client_socket) {
     std::ifstream log_file(LOG_FILE);
     std::ostringstream response;
+
+    if (!log_file) {
+        response << "HTTP/1.1 500 Internal Server Error\r\n";
+        response << "Content-Type: text/html\r\n\r\n";
+        response << "<!DOCTYPE html><html><head><style>";
+        response << "body { background-color: black; color: white; font-family: monospace; font-size: 18px; }";
+        response << "</style></head><body>";
+        response << "<h1>Error: Unable to read log file.</h1>";
+        response << "</body></html>";
+        send(client_socket, response.str().c_str(), response.str().size(), 0);
+        close(client_socket);
+        return;
+    }
 
     // Read the log file into a vector for reversing
     std::vector<std::string> log_lines;
@@ -59,7 +72,7 @@ void serve_client(int client_socket) {
     response << "HTTP/1.1 200 OK\r\n";
     response << "Content-Type: text/html\r\n\r\n";
     response << "<!DOCTYPE html><html><head><style>";
-    response << "body { background-color: black; color: white; font-family: monospace; font-size: 18px; }"; // Increased font size
+    response << "body { background-color: black; color: white; font-family: monospace; font-size: 18px; }";
     response << "</style>";
     response << "<meta http-equiv=\"refresh\" content=\"2\">"; // Auto-refresh every 2 seconds
     response << "</head><body>";
@@ -72,8 +85,7 @@ void serve_client(int client_socket) {
     response << "</body></html>";
 
     // Send response
-    std::string response_str = response.str();
-    send(client_socket, response_str.c_str(), response_str.size(), 0);
+    send(client_socket, response.str().c_str(), response.str().size(), 0);
     close(client_socket);
 }
 
@@ -169,3 +181,4 @@ int main() {
     start_server();
     return 0;
 }
+
