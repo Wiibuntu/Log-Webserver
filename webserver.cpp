@@ -22,22 +22,30 @@
 std::string get_system_temps() {
     std::string temps;
     std::array<char, 128> buffer;
+
+    // Execute the sensors command using popen
     FILE *pipe = popen("sensors", "r");
     if (!pipe) {
-        return "Error: Unable to fetch temperatures.";
+        return "Error: Unable to execute sensors command.";
     }
 
+    // Read the output of the sensors command
     while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         temps += buffer.data();
     }
-    pclose(pipe);
+
+    int return_code = pclose(pipe);
+    if (return_code != 0) {
+        temps = "Error: Sensors command failed to execute properly.";
+    }
 
     if (temps.empty()) {
-        return "No temperature data available.";
+        temps = "No temperature data available.";
     }
 
     return temps;
 }
+
 
 // Function to serve client requests
 void serve_client(int client_socket) {
