@@ -16,6 +16,13 @@
 #define LOG_FILE "/path/to/log.txt"  // Replace with the absolute path to your log file
 #define PID_FILE "/var/run/webserver.pid"  // Path to PID file
 
+void stop_existing_webserver() {
+    std::ostringstream command;
+    command << "sudo lsof -t -i :" << PORT << " | xargs -r kill -9";
+    system(command.str().c_str());
+}
+
+
 // Function to log errors
 void log_error(const std::string &message) {
     std::cerr << "Error: " << message << std::endl;
