@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <array>
+#include <algorithm>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
@@ -31,61 +33,99 @@ void handle_signal(int signal) {
     }
 }
 
-// Function to check if the webserver is already running
-bool is_webserver_running() {
-    std::ifstream pid_file(PID_FILE);
-    if (!pid_file.is_open()) {
-        return false;  // PID file does not exist
+// Function to fetch system temperatures using lm-sensors
+std::string get_system_temps() {
+    std::string temps;
+    std::array<char, 128> buffer;
+    FILE *pipe = popen("sensors", "r");
+    if (!pipe) {
+        return "Error: Unable to fetch temperatures.";
     }
 
-    int pid;
-    pid_file >> pid;
-    pid_file.close();
-
-    // Check if the process with this PID exists
-    if (kill(pid, 0) == 0) {
-        return true;  // Process is running
-    } else {
-        unlink(PID_FILE);  // Remove stale PID file
-        return false;
+    while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
+        temps += buffer.data();
     }
+
+    int return_code = pclose(pipe);
+    if (return_code != 0) {
+        temps = "Error: Sensors command failed.";
+    }
+
+    if (temps.empty()) {
+        temps = "No temperature data available.";
+    }
+
+    return temps;
 }
 
-// Function to write the current process PID to the PID file
-void write_pid_file() {
-    std::ofstream pid_file(PID_FILE, std::ios::trunc);
-    if (!pid_file.is_open()) {
-        log_error("Unable to write to PID file.");
-        exit(EXIT_FAILURE);
+// Function to read the log file
+std::vector<std::string> read_log_file() {
+    std::vector<std::string> log_lines;
+    std::ifstream log_file(LOG_FILE);
+    if (!log_file) {
+        log_lines.push_back("Error: Unable to read log file.");
+        return log_lines;
     }
-    pid_file << getpid() << std::endl;
-    pid_file.close();
+
+    std::string line;
+    while (std::getline(log_file, line)) {
+        log_lines.push_back(line);
+    }
+
+    log_file.close();
+    return log_lines;
 }
 
-// Function to clean up the port by killing processes using it
-void cleanup_port() {
-    std::ostringstream command;
-    command << "sudo lsof -t -i :" << PORT << " | xargs -r kill -9";
-    int result = system(command.str().c_str());
-    if (result != 0) {
-        log_error("Failed to clean up port. Ensure the process using the port is terminated.");
-    } else {
-        std::cout << "Port " << PORT << " cleaned up successfully.\n";
+// Function to create the HTML response
+std::string create_html_response(const std::vector<std::string> &log_lines, const std::string &system_temps) {
+    std::ostringstream response;
+
+    // HTML and CSS structure
+    response << "HTTP/1.1 200 OK\r\n";
+    response << "Content-Type: text/html\r\n";
+    response << "Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n";
+    response << "Pragma: no-cache\r\n";
+    response << "Expires: -1\r\n\r\n";
+
+    response << "<!DOCTYPE html><html><head><style>";
+    response << "body { background-color: black; color: white; font-family: monospace; font-size: 16px; margin: 0; padding: 0; }";
+    response << ".widget { border: 1px solid white; margin: 10px; padding: 10px; border-radius: 8px; background-color: rgba(255, 255, 255, 0.1); }";
+    response << ".widget-header { font-weight: bold; margin-bottom: 10px; font-size: 18px; }";
+    response << ".widget-content { max-height: 300px; overflow-y: auto; }";
+    response << "</style>";
+    response << "<meta http-equiv=\"refresh\" content=\"5\">"; // Refresh every 5 seconds
+    response << "</head><body>";
+
+    // System Temperature Widget
+    response << "<div class=\"widget\">";
+    response << "<div class=\"widget-header\">System Temperatures</div>";
+    response << "<div class=\"widget-content\">";
+    std::istringstream temps_stream(system_temps);
+    std::string line;
+    while (std::getline(temps_stream, line)) {
+        response << line << "<br>";
     }
+    response << "</div></div>";
+
+    // Log File Widget
+    response << "<div class=\"widget\">";
+    response << "<div class=\"widget-header\">Log File</div>";
+    response << "<div class=\"widget-content\">";
+    for (const auto &log_line : log_lines) {
+        response << log_line << "<br>";
+    }
+    response << "</div></div>";
+
+    response << "</body></html>";
+    return response.str();
 }
 
 // Function to serve client requests
 void serve_client(int client_socket) {
-    std::ostringstream response;
-
-    // Create a simple HTML response
-    response << "HTTP/1.1 200 OK\r\n";
-    response << "Content-Type: text/html\r\n\r\n";
-    response << "<!DOCTYPE html><html><head><title>Webserver</title></head><body>";
-    response << "<h1>Webserver is running</h1>";
-    response << "</body></html>";
-
-    send(client_socket, response.str().c_str(), response.str().size(), 0);
+    std::vector<std::string> log_lines = read_log_file();
+    std::string system_temps = get_system_temps();
+    std::string response = create_html_response(log_lines, system_temps);
+    send(client_socket, response.c_str(), response.size(), 0);
     close(client_socket);
 }
 
@@ -140,15 +180,6 @@ void start_server() {
 
 // Main function
 int main() {
-    // Check if the webserver is already running
-    if (is_webserver_running()) {
-        std::cout << "Webserver is already running. Stopping it...\n";
-        cleanup_port();  // Clean up the port
-    }
-
-    // Write the current process PID to the PID file
-    write_pid_file();
-
     // Handle termination signals to clean up the PID file
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);
