@@ -11,17 +11,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <cstdlib>
 
 #define PORT 28885
 #define LOG_FILE "/path/to/log.txt"  // Replace with the absolute path to your log file
 #define PID_FILE "/var/run/webserver.pid"  // Path to PID file
-
-void stop_existing_webserver() {
-    std::ostringstream command;
-    command << "sudo lsof -t -i :" << PORT << " | xargs -r kill -9";
-    system(command.str().c_str());
-}
-
 
 // Function to log errors
 void log_error(const std::string &message) {
@@ -68,24 +62,16 @@ void write_pid_file() {
     pid_file.close();
 }
 
-// Function to stop the existing webserver
-void stop_existing_webserver() {
-    std::ifstream pid_file(PID_FILE);
-    if (!pid_file.is_open()) {
-        return;  // No PID file to read
-    }
-
-    int pid;
-    pid_file >> pid;
-    pid_file.close();
-
-    if (kill(pid, SIGTERM) == 0) {
-        std::cout << "Stopped existing webserver (PID: " << pid << ").\n";
+// Function to clean up the port by killing processes using it
+void cleanup_port() {
+    std::ostringstream command;
+    command << "sudo lsof -t -i :" << PORT << " | xargs -r kill -9";
+    int result = system(command.str().c_str());
+    if (result != 0) {
+        log_error("Failed to clean up port. Ensure the process using the port is terminated.");
     } else {
-        log_error("Failed to stop existing webserver.");
+        std::cout << "Port " << PORT << " cleaned up successfully.\n";
     }
-
-    unlink(PID_FILE);  // Remove PID file
 }
 
 // Function to serve client requests
@@ -129,7 +115,7 @@ void start_server() {
 
     // Bind socket
     if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
-        log_error("Bind failed.");
+        log_error("Bind failed. Port " + std::to_string(PORT) + " may already be in use.");
         exit(EXIT_FAILURE);
     }
 
@@ -157,7 +143,7 @@ int main() {
     // Check if the webserver is already running
     if (is_webserver_running()) {
         std::cout << "Webserver is already running. Stopping it...\n";
-        stop_existing_webserver();
+        cleanup_port();  // Clean up the port
     }
 
     // Write the current process PID to the PID file
