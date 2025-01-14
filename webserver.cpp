@@ -16,7 +16,7 @@
 #include <cstdlib>
 
 #define PORT 28885
-#define LOG_FILE "/path/to/log.txt"  // Replace with the absolute path to your log file
+#define LOG_FILE "/home/nick/Log-Webserver/log.txt"  // Replace with the absolute path to your log file
 #define PID_FILE "/var/run/webserver.pid"  // Path to PID file
 
 // Function to log errors
