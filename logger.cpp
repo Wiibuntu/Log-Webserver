@@ -85,8 +85,43 @@ void start_logger_server() {
     }
 }
 
+// Function to run the logger in local mode
+void run_local_logger() {
+    std::string input;
+    std::cout << "Logger started in local mode. Type messages to log. Type 'exit' to quit." << std::endl;
+
+    while (true) {
+        std::cout << "> ";
+        std::getline(std::cin, input);
+
+        if (input == "exit") {
+            break;
+        }
+
+        if (!input.empty()) {
+            log_message(input);  // Log the user input
+        } else {
+            std::cout << "No input provided. Please type a message to log." << std::endl;
+        }
+    }
+}
+
+// Main function
 int main() {
-    start_logger_server();
+    std::string mode;
+
+    std::cout << "Select mode: [local / remote] ";
+    std::getline(std::cin, mode);
+
+    if (mode == "local") {
+        run_local_logger();
+    } else if (mode == "remote") {
+        start_logger_server();
+    } else {
+        std::cerr << "Invalid mode selected. Use 'local' for local logging or 'remote' for remote logging." << std::endl;
+        return 1;
+    }
+
     return 0;
 }
 
