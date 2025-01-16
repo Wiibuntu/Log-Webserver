@@ -15,6 +15,7 @@
 #include <fcntl.h>
 #include <cstdlib>
 
+
 #define PORT 28885
 #define LOG_FILE "/home/nick/Log-Webserver/log.txt"  // Replace with the absolute path to your log file
 #define PID_FILE "/var/run/webserver.pid"  // Path to PID file
@@ -73,6 +74,10 @@ std::vector<std::string> read_log_file() {
     }
 
     log_file.close();
+
+    // Reverse the log lines to show the newest entries first
+    std::reverse(log_lines.begin(), log_lines.end());
+
     return log_lines;
 }
 
@@ -180,7 +185,7 @@ void start_server() {
 
 // Main function
 int main() {
-    // Handle termination signals to clean up the PID file
+    // Handle termination signals
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);
 
@@ -189,4 +194,3 @@ int main() {
 
     return 0;
 }
-
